@@ -2,36 +2,49 @@ const db = require("../../models");
 const jwt = require("jsonwebtoken");
 const cookie = require("cookie");
 const UserModel = db.user;
+const SECRET_KEY = process.env.JWT_SECRET;
+const bcrypt = require("bcrypt");
 
 const cookieOptions = {
-  maxAge: 3600000, // 1 hour in milliseconds
   // httpOnly: true,
-  // secure: true,
-  // sameSite: "strict", // For added security, specify the sameSite attribute
+  // secure: true, // Make sure to use HTTPS in production
+  maxAge: 3600000, // 1 hour expiration
+  // sameSite: "strict", // Adjust according to your needs
 };
 
 const signIn = async function (req, res) {
-  const { username, password } = req.body;
-
+  let { username, password } = req.body;
+  username = username.trim().toLowerCase();
   try {
     const user = await UserModel.findOne({ username });
 
-    if (!user || user.password !== password) {
-      return res
-        .status(401)
-        .json({ status: 401, message: "Invalid credentials" });
+    const match = await bcrypt.compare(password, user.password);
+
+    if (!user || !match) {
+      return (
+        res
+          // .status(401)
+          .json({ status: 401, message: "Invalid credentials" })
+      );
     }
 
     // Generate JWT and set cookie
-    const token = jwt.sign({ username: user.username }, "secret", {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { username: user.username, colorPreference: user.colorPreference },
+      SECRET_KEY,
+      {
+        expiresIn: "1h",
+      }
+    );
     console.log("token", token);
 
-    const cookieString = cookie.serialize("token", token, cookieOptions);
-    res.setHeader("Set-Cookie", cookieString);
+    res.cookie("token", token);
 
-    res.status(200).json({ status: 200, message: "Sign in successful" });
+    res.status(200).json({
+      status: 200,
+      message: "Sign in successful",
+      data: { username, preference: user.colorPreference, token },
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 500, message: "Server error" });
@@ -46,8 +59,12 @@ const createUser = async function (req, res) {
         message: "password and confirm password should be same",
       });
     }
-
-    let resp = await UserModel.create({ username, password });
+    const saltRounds = 10; // Number of salt rounds
+    const hash = await bcrypt.hash(password, saltRounds);
+    let resp = await UserModel.create({
+      username: username.trim().toLowerCase(),
+      password: hash,
+    });
     res.json({ status: 200, message: "User created successfully", data: resp });
   } catch (error) {
     return res.json({
@@ -77,13 +94,12 @@ const changePreference = async function (req, res) {
   try {
     // Update color preference for the authenticated user
     const user = await UserModel.findOneAndUpdate(
-      { username: req.user.username },
+      { username: req.body.username.trim().toLowerCase() },
       { colorPreference: color },
       { new: true }
     );
-
     if (!user) {
-      return res.status(404).json({ status: 404, message: "User not found" });
+      return res.json({ status: 404, message: "User not found" });
     }
 
     res.json({ status: 200, message: "Color preference updated successfully" });

@@ -2,6 +2,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const User = require("./models/UserModel");
 require("dotenv").config();
@@ -13,21 +14,27 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
-app.use("/api/v1", routes);
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization", "Set-Cookie"], // Include Set-Cookie header
+    credentials: true, // Allow credentials (e.g., cookies)
+  })
+);
 
 app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Credentials", false);
   next();
 });
 
-// Middleware
-app.use(express.json());
-app.use(cookieParser());
+app.use("/api/v1", routes);
 
 // Connect to MongoDB
 mongoose

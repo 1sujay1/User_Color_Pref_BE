@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+/**IMPORT MIDDLEWARE */
+const authenticateJWT = require("./../middlewares/authenticateJWT");
 
 /**
  * Roles for route access
@@ -34,9 +36,9 @@ var authorize = function (schema, tokenVerify, role) {
 
 /**User API */
 
-router.post("/user", user.createUser);
-router.get("/user", user.getUser);
+router.post("/user", authenticateJWT, user.createUser);
+router.get("/users", user.getUser);
 router.post("/signIn", user.signIn);
-router.put("/preferences", user.changePreference);
+router.put("/preferences", authenticateJWT, user.changePreference);
 
 module.exports = router;
